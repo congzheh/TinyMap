@@ -303,7 +303,7 @@
             a = setInterval(() => {
                 Object.keys(aircraftData).forEach(name => {
                     const prevTrackLayerId = `aircraft-track-layer-${name}`;
-                    if (map.getLayer(prevTrackLayerId)) {
+                    if (map.getLayer(prevTrackLayerId) && name!=aircraftName) {
                         map.removeLayer(prevTrackLayerId);
                         map.removeSource(prevTrackLayerId);
                     }
