@@ -237,9 +237,11 @@
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/630061561/clce8rtht00em14pgx5b2a1qy', // Replace with your desired map style
+            customAttribution: '<a href="https://github.com/congzheh/TinyMap" target="_blank">TinyMap</a>',
             center: [120, 25],
             zoom: 2
         });
+
 
         function getAircraftDataFromBackend() {
             aircraftData = {};
