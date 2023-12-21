@@ -21,6 +21,11 @@
             z-index: 0;
         }
         
+        .mdui-list-item {
+            word-wrap: break-word;
+            /* 控制单词换行 */
+        }
+        
         .text[data-hz] {
             -webkit-backdrop-filter: blur(3px);
             backdrop-filter: blur(3px);
@@ -105,6 +110,31 @@
             cursor: default;
             left: 50%;
         }
+        /* 底部侧边栏的样式 */
+        
+        .sidebar {
+            width: 250px;
+            height: 100%;
+            padding: 20px;
+            box-shadow: -2px 0px 5px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            word-wrap: break-word !important;
+            /* 控制单词换行 */
+        }
+        
+        #sidebar {
+            width: 250px;
+            height: 100%;
+            padding: 20px;
+            box-shadow: -2px 0px 5px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            word-wrap: break-word !important;
+            /* 控制单词换行 */
+        }
+        
+        #route {
+            word-wrap: break-word !important;
+        }
     </style>
 </head>
 
@@ -125,6 +155,41 @@
 
 
     <!-- Map -->
+    <div id="sidebar" class="mdui-drawer mdui-drawer-bottom sidebar">
+        <ul class="mdui-list" style="width: calc(100%);
+            max-width: 320px; word-wrap: break-word!important;  white-space: normal!important; ">
+            <li class="mdui-list-item mdui-ripple">
+                <h2 id="flightNumber"></h2>
+            </li>
+            <li class="mdui-divider"></li>
+            <li class="mdui-list-item mdui-ripple"><b>DEP：</b>
+                <p id="departureAirport"></p>
+            </li>
+            <li class="mdui-list-item mdui-ripple"><b>ARR：</b>
+                <p id="arrivalAirport"></p>
+            </li>
+            <li class="mdui-divider"></li>
+            <li class="mdui-list-item mdui-ripple">
+                <p><b>RTE：</b><br/>
+                    <l id="route"></l>
+                </p>
+
+                </p>
+            </li>
+
+        </ul>
+        <button id="closesidebar" class="mdui-btn">关闭侧边栏</button>
+
+
+
+
+
+
+
+
+
+
+    </div>
     <div id="map"></div>
 
 
@@ -147,7 +212,7 @@
         // Functionality to reset map view
         document.getElementById('centerButton').addEventListener('click', () => {
             map.flyTo({
-                center: [120,25],
+                center: [120, 25],
                 zoom: 2,
                 pitch: 0,
                 bearing: 0,
@@ -161,6 +226,13 @@
         let aircraftMarkers = {};
         let aircraftData = {};
         var sdata = {};
+        var sidebarInst = new mdui.Drawer('#sidebar', {
+            swipe: true,
+        });
+        $('#closesidebar').click(function() {
+            sidebarInst.close();
+        });
+        sidebarInst.close();
 
         const map = new mapboxgl.Map({
             container: 'map',
@@ -184,11 +256,23 @@
                             var arr = track.arr;
                             var rte = track.rte;
                             var trsp = track.transponder;
-                            //console.log(hdg)
+                            var route_f = track.route_f;
+                            console.log(route_f)
                             if (!aircraftData[name]) {
                                 aircraftData[name] = {
                                     positions: [],
+                                    route_p: [],
                                     track: {
+                                        type: 'Feature',
+                                        geometry: {
+                                            type: 'LineString',
+                                            coordinates: []
+                                        },
+                                        properties: {
+                                            name: name
+                                        }
+                                    },
+                                    route_f: {
                                         type: 'Feature',
                                         geometry: {
                                             type: 'LineString',
@@ -207,14 +291,19 @@
                                 };
                             }
                             aircraftData[name].positions = track.coordinates.map(coord => [coord.lng, coord.lat, coord.altitude]);
+                            if (!Array.isArray(route_f)) {
+                                route_f = [];
+                            }
 
+                            aircraftData[name].route_p = route_f.map(coord => [coord[2], coord[1]]);
+                            aircraftData[name].route_f.geometry.coordinates = aircraftData[name].route_p;
                             aircraftData[name].track.geometry.coordinates = aircraftData[name].positions;
                             aircraftData[name].heading = hdg
                             aircraftData[name].dep = dep
                             aircraftData[name].arr = arr
                             aircraftData[name].rte = rte
                             aircraftData[name].transponder = trsp
-                                //console.log(aircraftData[name])
+                            console.log(aircraftData[name])
 
                         });
 
@@ -270,6 +359,28 @@
                     },
                 });
                 map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
+
+
+                map.addSource(trackLayerId + "_route", {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: [sdata[aname].route_f],
+                    },
+                });
+                map.addLayer({
+                    id: trackLayerId + "_route",
+                    type: 'line',
+                    source: trackLayerId + "_route",
+                    paint: {
+                        'line-color': 'white',
+                        'line-width': 2,
+                    },
+                });
+                map.setPaintProperty(trackLayerId + "_route", 'line-color', 'white');
+
+
+
             } else {
                 // Update track layer data and style
                 map.getSource(trackLayerId).setData({
@@ -277,17 +388,29 @@
                     features: [sdata[aname].track],
                 });
                 map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
+
+
+                map.getSource(trackLayerId + "_route").setData({
+                    type: 'FeatureCollection',
+                    features: [sdata[aname].route_f],
+                });
+                map.setPaintProperty(trackLayerId + "_route", 'line-color', 'white');
             }
 
         }
-        var a
+        var a;
+        var pnow;
+        var pst;
 
         function displayTrackOnMarkerClick(marker, aircraftName) {
+            pnow = aircraftName;
             Object.keys(aircraftData).forEach(name => {
                 const prevTrackLayerId = `aircraft-track-layer-${name}`;
                 if (map.getLayer(prevTrackLayerId)) {
                     map.removeLayer(prevTrackLayerId);
                     map.removeSource(prevTrackLayerId);
+                    map.removeLayer(prevTrackLayerId + "_route");
+                    map.removeSource(prevTrackLayerId + "_route");
                 }
             });
             const trackLayerId = `aircraft-track-layer-${aircraftName}`;
@@ -297,21 +420,31 @@
             var aircraft = aircraftData[aircraftName];
             updateTrackData(trackLayerId, aircraftName);
 
-            // Update track data periodically (every 3 seconds)
 
+            // Update track data periodically (every 3 seconds)
+            a = null;
             clearInterval(a);
             a = setInterval(() => {
-                Object.keys(aircraftData).forEach(name => {
-                    const prevTrackLayerId = `aircraft-track-layer-${name}`;
-                    if (map.getLayer(prevTrackLayerId) && name!=aircraftName) {
-                        map.removeLayer(prevTrackLayerId);
-                        map.removeSource(prevTrackLayerId);
-                    }
-                });
-                getAircraftDataFromBackend();
-                var updatedAircraft = aircraftData[aircraftName];
-                updateTrackData(trackLayerId, aircraftName);
-            }, 2000);
+                if (pnow != aircraftName) {
+                    clearInterval(a);
+                    exit;
+                } else {
+                    //aircraftName = pnow
+                    Object.keys(aircraftData).forEach(name => {
+                        const prevTrackLayerId = `aircraft-track-layer-${name}`;
+                        if (map.getLayer(prevTrackLayerId) && name != aircraftName) {
+                            map.removeLayer(prevTrackLayerId);
+                            map.removeSource(prevTrackLayerId);
+                            map.removeLayer(prevTrackLayerId + "_route");
+                            map.removeSource(prevTrackLayerId + "_route");
+                        }
+                    });
+                    getAircraftDataFromBackend();
+                    var updatedAircraft = aircraftData[aircraftName];
+                    updateTrackData(trackLayerId, aircraftName);
+                }
+
+            }, 5000);
 
         }
 
@@ -323,6 +456,8 @@
         }
         // Updated function to update aircraft markers on the map
         function updateAircraftMarkers() {
+
+
 
 
             Object.keys(aircraftData).forEach(name => {
@@ -340,11 +475,22 @@
                 //console.log(aircraftMarkers[name])
                 if (aircraftMarkers[name]) {
                     //console.log(0)
-                    marker.setLngLat(aircraft.positions[aircraft.positions.length - 1])
-                        .getPopup().setHTML(`<h2 style="color:black;">${name} </h2><h3 style="color:black;">${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`);
+                    marker.setLngLat(aircraft.positions[aircraft.positions.length - 1]);
+                    //.getPopup().setHTML(`<h2 style="color:black;">${name} </h2><h3 style="color:black;">${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`);
 
                     marker.getElement().addEventListener('click', () => {
                         displayTrackOnMarkerClick(marker, name)
+                        var markerInfo = `<h2 style="color:black;">${name} </h2><h3 style="color:black;">${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`; // 这里需要替换为实际的标记物信息
+
+                        // 将标记物信息展示在侧边栏中
+                        document.getElementById('flightNumber').innerText = name;
+                        document.getElementById('departureAirport').innerText = aircraft.dep;
+                        document.getElementById('arrivalAirport').innerText = aircraft.arr;
+                        document.getElementById('route').innerText = aircraft.rte;
+
+
+                        sidebarInst.open(); // 打开侧边栏
+
                     });
 
 
@@ -352,20 +498,29 @@
                     //console.log(1)
                     aircraftMarkers[name] = new mapboxgl.Marker(el)
                         .setLngLat(aircraft.positions[aircraft.positions.length - 1])
-                        .setPopup(new mapboxgl.Popup().setHTML(`<h2 style="color:black;">${name} </h2><h3 style="color:black;">${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`))
                         .addTo(map);
+                    //.setPopup(new mapboxgl.Popup().setHTML(`<h2 style="color:black;">${name} </h2><h3 style="color:black;">${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`))
+
 
                     // 获取 Popup
-                    const offset = [0, -30];
-                    const popup = aircraftMarkers[name].getPopup();
+                    //const offset = [0, -30];
+                    //const popup = aircraftMarkers[name].getPopup();
                     // 设置 Popup 的偏移
-                    popup.setLngLat(aircraft.positions[aircraft.positions.length - 1]).setOffset(offset);
+                    //popup.setLngLat(aircraft.positions[aircraft.positions.length - 1]).setOffset(offset);
 
 
                     const marker = aircraftMarkers[name];
 
                     marker.getElement().addEventListener('click', () => {
                         displayTrackOnMarkerClick(marker, name);
+                        var markerInfo = `<h2>${name} </h2><h3>${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`; // 这里需要替换为实际的标记物信息
+
+
+                        document.getElementById('flightNumber').innerText = name;
+                        document.getElementById('departureAirport').innerText = aircraft.dep;
+                        document.getElementById('arrivalAirport').innerText = aircraft.arr;
+                        document.getElementById('route').innerText = aircraft.rte;
+                        sidebarInst.open(); // 打开侧边栏
                     });
                 }
 
@@ -380,6 +535,10 @@
 
             setInterval(getAircraftDataFromBackend, 5000); // Update data every 5 seconds
             setInterval(updateAircraftMarkers, 5000)
+            map.dragRotate.disable(); // 禁止拖拽旋转
+            map.touchZoomRotate.disableRotation(); // 禁止触摸缩放旋转
+
+
 
         });
         getAircraftDataFromBackend()
@@ -388,7 +547,7 @@
 
 
 
-   
+
 
         function setUTCTime() {
             let d = new Date();
