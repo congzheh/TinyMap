@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>飞机地图</title>
+    <meta charset="utf-8" />
+
+    <!-- MDUI CSS -->
+    <link rel="stylesheet" href="https://cdn.staticfile.org/mdui/0.4.3/css/mdui.min.css">
+
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        /* Custom CSS */
+        
+        #map {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 0;
+        }
+        
+        .text[data-hz] {
+            -webkit-backdrop-filter: blur(3px);
+            backdrop-filter: blur(3px);
+            background-color: #07111b80;
+        }
+        
+        .text-white {
+            --tw-text-opacity: 1;
+            color: rgb(255 255 255 / var(--tw-text-opacity));
+        }
+        
+        .font-bold {
+            font-weight: 700;
+        }
+        
+        .py-3 {
+            padding-top: .75rem;
+            padding-bottom: .75rem;
+        }
+        
+        .px-5 {
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
+        }
+        
+        .p-2 {
+            padding: .5rem;
+        }
+        
+        .rounded-lg {
+            border-radius: .5rem;
+        }
+        
+        .rounded-full {
+            border-radius: 9999px;
+        }
+        
+        .pr-7 {
+            padding-right: 1.75rem;
+        }
+        
+        .pb-10 {
+            padding-bottom: 2.5rem;
+        }
+        
+        .right-0 {
+            right: 0px;
+        }
+        
+        .bottom-0 {
+            bottom: 0px;
+        }
+        
+        .absolute {
+            position: absolute;
+        }
+        
+        .px-10 {
+            padding-left: 2.5rem;
+            padding-right: 2.5rem;
+        }
+        
+        .h-16 {
+            height: 4rem;
+        }
+        
+        .m-2 {
+            margin: .5rem;
+        }
+        
+        .invisible {
+            visibility: hidden;
+        }
+        
+        .time {
+            z-index: 114514;
+            position: fixed;
+            margin-top: 0px;
+            font-size: 25px;
+            font-weight: bold;
+            width: 180px;
+            cursor: default;
+            left: 50%;
+        }
+    </style>
+</head>
+
+<body class="mdui-appbar-with-toolbar mdui-theme-layout-dark">
+
+    <!-- Header -->
+    <div class="mdui-appbar mdui-appbar-fixed">
+        <div class="mdui-toolbar mdui-color-theme">
+            <div class="mdui-toolbar mdui-color-theme">
+                <span class="mdui-typo-headline">CFEC联飞地图</span>
+            </div>
+            <div class="mdui-toolbar-spacer"></div>
+            <div class="time">
+                <span id="time" style="width:100%">11:45:14 UTC</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Map -->
+    <div id="map"></div>
+
+
+
+
+    <!-- Footer -->
+    <div class="absolute bottom-0 right-0 pb-10 pr-7">
+        <div data-hz="" class="p-2 text rounded-lg text-white rounded-full px-5 py-3 text-md font-bold" style="cursor: pointer;" id="centerButton"> 回 中 </div>
+    </div>
+    <!-- MDUI JS -->
+    <script src="https://cdn.staticfile.org/mdui/0.4.3/js/mdui.min.js"></script>
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        // Your existing JavaScript code for map initialization and functionality
+        // ...
+
+        // Functionality to reset map view
+        document.getElementById('centerButton').addEventListener('click', () => {
+            map.flyTo({
+                center: [120,25],
+                zoom: 2,
+                pitch: 0,
+                bearing: 0,
+                essential: true
+            });
+        });
+    </script>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiNjMwMDYxNTYxIiwiYSI6ImNsY2U4aXN6NTUydzEzbnBqN2RmdGVtZzgifQ.H5fUIkAnjensZPEoppb6HQ'
+
+        let aircraftMarkers = {};
+        let aircraftData = {};
+        var sdata = {};
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/630061561/clce8rtht00em14pgx5b2a1qy', // Replace with your desired map style
+            center: [120, 25],
+            zoom: 2
+        });
+
+        function getAircraftDataFromBackend() {
+            aircraftData = {};
+            $.ajax({
+                url: 'https://pilot.cfec.top/route_api.php', // Endpoint to fetch aircraft track data
+                method: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    if (Array.isArray(data)) {
+                        data.forEach(track => {
+                            const name = track.name;
+                            var hdg = track.heading;
+                            var dep = track.dep;
+                            var arr = track.arr;
+                            var rte = track.rte;
+                            var trsp = track.transponder;
+                            //console.log(hdg)
+                            if (!aircraftData[name]) {
+                                aircraftData[name] = {
+                                    positions: [],
+                                    track: {
+                                        type: 'Feature',
+                                        geometry: {
+                                            type: 'LineString',
+                                            coordinates: []
+                                        },
+                                        properties: {
+                                            name: name
+                                        }
+                                    },
+                                    heading: hdg,
+                                    dep: dep,
+                                    arr: arr,
+                                    rte: rte,
+                                    transponder: trsp
+
+                                };
+                            }
+                            aircraftData[name].positions = track.coordinates.map(coord => [coord.lng, coord.lat, coord.altitude]);
+
+                            aircraftData[name].track.geometry.coordinates = aircraftData[name].positions;
+                            aircraftData[name].heading = hdg
+                            aircraftData[name].dep = dep
+                            aircraftData[name].arr = arr
+                            aircraftData[name].rte = rte
+                            aircraftData[name].transponder = trsp
+                                //console.log(aircraftData[name])
+
+                        });
+
+                        updateAircraftMarkers();
+                        sdata = aircraftData
+                        let existingAircraftNames = aircraftData;
+                        //console.log(existingAircraftNames)
+
+                        Object.keys(aircraftMarkers).forEach(name => {
+                            //console.log(name)
+                            //console.log(existingAircraftNames[name])
+                            if (!existingAircraftNames[name]) {
+                                aircraftMarkers[name].remove();
+                                delete aircraftMarkers[name];
+                            }
+                        });
+
+                    }
+
+                },
+                error: function(xhr, status, error) {
+                    console.error('There was a problem with the request:', error);
+                }
+            });
+
+        }
+
+
+
+
+        let updateInterval;
+        let trackUpdateInterval;
+
+        function updateTrackData(trackLayerId, aname) {
+            var aircraft;
+
+            if (!map.getSource(trackLayerId)) {
+                // Create new track layer
+                map.addSource(trackLayerId, {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: [sdata[aname].track],
+                    },
+                });
+                map.addLayer({
+                    id: trackLayerId,
+                    type: 'line',
+                    source: trackLayerId,
+                    paint: {
+                        'line-color': 'yellow',
+                        'line-width': 2,
+                    },
+                });
+                map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
+            } else {
+                // Update track layer data and style
+                map.getSource(trackLayerId).setData({
+                    type: 'FeatureCollection',
+                    features: [sdata[aname].track],
+                });
+                map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
+            }
+
+        }
+        var a
+
+        function displayTrackOnMarkerClick(marker, aircraftName) {
+            Object.keys(aircraftData).forEach(name => {
+                const prevTrackLayerId = `aircraft-track-layer-${name}`;
+                if (map.getLayer(prevTrackLayerId)) {
+                    map.removeLayer(prevTrackLayerId);
+                    map.removeSource(prevTrackLayerId);
+                }
+            });
+            const trackLayerId = `aircraft-track-layer-${aircraftName}`;
+            // Remove previous track layers
+
+
+            var aircraft = aircraftData[aircraftName];
+            updateTrackData(trackLayerId, aircraftName);
+
+            // Update track data periodically (every 3 seconds)
+
+            clearInterval(a);
+            a = setInterval(() => {
+                Object.keys(aircraftData).forEach(name => {
+                    const prevTrackLayerId = `aircraft-track-layer-${name}`;
+                    if (map.getLayer(prevTrackLayerId)) {
+                        map.removeLayer(prevTrackLayerId);
+                        map.removeSource(prevTrackLayerId);
+                    }
+                });
+                getAircraftDataFromBackend();
+                var updatedAircraft = aircraftData[aircraftName];
+                updateTrackData(trackLayerId, aircraftName);
+            }, 2000);
+
+        }
+
+        // 在关闭 marker 时清除定时器
+        function closeMarker() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        }
+        // Updated function to update aircraft markers on the map
+        function updateAircraftMarkers() {
+
+
+            Object.keys(aircraftData).forEach(name => {
+                const aircraft = aircraftData[name];
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.style.backgroundImage = 'url(airplane.png)';
+                el.style.width = '50px';
+                el.style.height = '50px';
+                el.style.backgroundSize = 'cover';
+
+
+
+                const marker = aircraftMarkers[name];
+                //console.log(aircraftMarkers[name])
+                if (aircraftMarkers[name]) {
+                    //console.log(0)
+                    marker.setLngLat(aircraft.positions[aircraft.positions.length - 1])
+                        .getPopup().setHTML(`<h2 style="color:black;">${name} </h2><h3 style="color:black;">${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`);
+
+                    marker.getElement().addEventListener('click', () => {
+                        displayTrackOnMarkerClick(marker, name)
+                    });
+
+
+                } else {
+                    //console.log(1)
+                    aircraftMarkers[name] = new mapboxgl.Marker(el)
+                        .setLngLat(aircraft.positions[aircraft.positions.length - 1])
+                        .setPopup(new mapboxgl.Popup().setHTML(`<h2 style="color:black;">${name} </h2><h3 style="color:black;">${aircraft.dep} - ${aircraft.arr}</h3><p style="color:black;">航路：${aircraft.rte}</p>`))
+                        .addTo(map);
+
+                    // 获取 Popup
+                    const offset = [0, -30];
+                    const popup = aircraftMarkers[name].getPopup();
+                    // 设置 Popup 的偏移
+                    popup.setLngLat(aircraft.positions[aircraft.positions.length - 1]).setOffset(offset);
+
+
+                    const marker = aircraftMarkers[name];
+
+                    marker.getElement().addEventListener('click', () => {
+                        displayTrackOnMarkerClick(marker, name);
+                    });
+                }
+
+                aircraftMarkers[name].setRotation(aircraft.heading);
+            });
+        }
+
+
+
+        map.on('load', () => {
+
+
+            setInterval(getAircraftDataFromBackend, 5000); // Update data every 5 seconds
+            setInterval(updateAircraftMarkers, 5000)
+
+        });
+        getAircraftDataFromBackend()
+
+
+
+
+
+   
+
+        function setUTCTime() {
+            let d = new Date();
+            let utc = d.toUTCString().split(" ")[4].split(":");
+            $("#time").text(`${utc[0]}:${utc[1]}:${utc[2]} UTC`);
+        }
+
+        setUTCTime();
+        setInterval(setUTCTime, 1000);
+    </script>
+</body>
+
+</html>
