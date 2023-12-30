@@ -72,6 +72,11 @@
             padding-bottom: 2.5rem;
         }
         
+        .pb-20 {
+            padding-bottom: 5rem;
+        }
+        
+        
         .right-0 {
             right: 0px;
         }
@@ -175,7 +180,7 @@
                     <l id="route"></l>
                 </p>
 
-                </p>
+            
             </li>
 
         </ul>
@@ -200,6 +205,8 @@
     <div class="absolute bottom-0 right-0 pb-10 pr-7">
         <div data-hz="" class="p-2 text rounded-lg text-white rounded-full px-5 py-3 text-md font-bold" style="cursor: pointer;" id="centerButton"> 回 中 </div>
     </div>
+    
+ 
     <!-- MDUI JS -->
     <script src="https://cdn.staticfile.org/mdui/0.4.3/js/mdui.min.js"></script>
     <!-- Mapbox GL JS -->
@@ -211,14 +218,9 @@
         // ...
 
         // Functionality to reset map view
-        document.getElementById('centerButton').addEventListener('click', () => {
-            map.flyTo({
-                center: [120, 25],
-                zoom: 2,
-                pitch: 0,
-                bearing: 0,
-                essential: true
-            });
+   
+        $("#centerButton").click(function () {
+            map.easeTo({ center: [120, 25], zoom: 2 });
         });
     </script>
     <script>
@@ -342,62 +344,66 @@
 
         function updateTrackData(trackLayerId, aname) {
             var aircraft;
-
-            if (!map.getSource(trackLayerId)) {
-                // Create new track layer
-                map.addSource(trackLayerId, {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: [sdata[aname].track],
-                    },
-                });
-                map.addLayer({
-                    id: trackLayerId,
-                    type: 'line',
-                    source: trackLayerId,
-                    paint: {
-                        'line-color': 'yellow',
-                        'line-width': 2,
-                    },
-                });
-                map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
-
-
-                map.addSource(trackLayerId + "_route", {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: [sdata[aname].route_f],
-                    },
-                });
-                map.addLayer({
-                    id: trackLayerId + "_route",
-                    type: 'line',
-                    source: trackLayerId + "_route",
-                    paint: {
-                        'line-color': 'white',
-                        'line-width': 2,
-                    },
-                });
-                map.setPaintProperty(trackLayerId + "_route", 'line-color', 'white');
-
-
+            if (pnow != aname) {
 
             } else {
-                // Update track layer data and style
-                map.getSource(trackLayerId).setData({
-                    type: 'FeatureCollection',
-                    features: [sdata[aname].track],
-                });
-                map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
+
+                if (!map.getSource(trackLayerId)) {
+                    // Create new track layer
+                    map.addSource(trackLayerId, {
+                        type: 'geojson',
+                        data: {
+                            type: 'FeatureCollection',
+                            features: [sdata[aname].track],
+                        },
+                    });
+                    map.addLayer({
+                        id: trackLayerId,
+                        type: 'line',
+                        source: trackLayerId,
+                        paint: {
+                            'line-color': 'yellow',
+                            'line-width': 8,
+                        },
+                    });
+                    map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
 
 
-                map.getSource(trackLayerId + "_route").setData({
-                    type: 'FeatureCollection',
-                    features: [sdata[aname].route_f],
-                });
-                map.setPaintProperty(trackLayerId + "_route", 'line-color', 'white');
+                    map.addSource(trackLayerId + "_route", {
+                        type: 'geojson',
+                        data: {
+                            type: 'FeatureCollection',
+                            features: [sdata[aname].route_f],
+                        },
+                    });
+                    map.addLayer({
+                        id: trackLayerId + "_route",
+                        type: 'line',
+                        source: trackLayerId + "_route",
+                        paint: {
+                            'line-color': 'white',
+                            'line-width': 2,
+                        },
+                    });
+                    map.setPaintProperty(trackLayerId + "_route", 'line-color', 'white');
+
+
+
+                } else {
+                    // Update track layer data and style
+                    map.getSource(trackLayerId).setData({
+                        type: 'FeatureCollection',
+                        features: [sdata[aname].track],
+                    });
+                    map.setPaintProperty(trackLayerId, 'line-color', 'yellow');
+
+
+                    map.getSource(trackLayerId + "_route").setData({
+                        type: 'FeatureCollection',
+                        features: [sdata[aname].route_f],
+                    });
+                    map.setPaintProperty(trackLayerId + "_route", 'line-color', 'white');
+                }
             }
 
         }
@@ -430,7 +436,6 @@
             a = setInterval(() => {
                 if (pnow != aircraftName) {
                     clearInterval(a);
-                    exit;
                 } else {
                     //aircraftName = pnow
                     Object.keys(aircraftData).forEach(name => {
@@ -442,12 +447,13 @@
                             map.removeSource(prevTrackLayerId + "_route");
                         }
                     });
-                    getAircraftDataFromBackend();
-                    var updatedAircraft = aircraftData[aircraftName];
+                    //getAircraftDataFromBackend();
+
+                    var updatedAircraft = sdata[aircraftName];
                     updateTrackData(trackLayerId, aircraftName);
                 }
 
-            }, 5000);
+            }, 20000);
 
         }
 
@@ -536,8 +542,8 @@
         map.on('load', () => {
 
 
-            setInterval(getAircraftDataFromBackend, 5000); // Update data every 5 seconds
-            setInterval(updateAircraftMarkers, 5000)
+            setInterval(getAircraftDataFromBackend, 20000); // Update data every 5 seconds
+            setInterval(updateAircraftMarkers, 20000)
             map.dragRotate.disable(); // 禁止拖拽旋转
             map.touchZoomRotate.disableRotation(); // 禁止触摸缩放旋转
 
